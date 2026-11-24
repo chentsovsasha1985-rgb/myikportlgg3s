@@ -1,6 +1,6 @@
 buildscript {
     repositories {
-        maven { url 'https://aliyun.com' }
+        maven { url 'https://google.com' }
         maven { url 'https://aliyun.com' }
         mavenCentral()
     }
@@ -11,8 +11,9 @@ buildscript {
 
 allprojects {
     repositories {
+        maven { url 'https://google.com' }
         maven { url 'https://aliyun.com' }
-        maven { url 'https://aliyun.com' }
+        maven { url 'https://xposed.info' }
         mavenCentral()
     }
 }

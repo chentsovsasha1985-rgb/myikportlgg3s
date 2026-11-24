@@ -27,10 +27,77 @@ jobs:
         with:
           java-version: '8'
           distribution: 'temurin'
-      - name: Download Xposed API 82 JAR
+      - name: Build Xposed API 82 Stub JAR
         run: |
-          mkdir -p app/libs
-          curl -fSL https://githubusercontent.com -o app/libs/api-82.jar
+          mkdir -p stub/de/robv/android/xposed/callbacks app/libs
+          cat << 'EOF' > stub/de/robv/android/xposed/XposedBridge.java
+          package de.robv.android.xposed;
+          import java.lang.reflect.Member;
+          public class XposedBridge {
+              public static void log(String text) {}
+              public static void log(Throwable t) {}
+              public static XC_MethodHook.Unhook hookMethod(Member hookMethod, XC_MethodHook callback) { return null; }
+          }
+          EOF
+          cat << 'EOF' > stub/de/robv/android/xposed/XC_MethodHook.java
+          package de.robv.android.xposed;
+          import java.lang.reflect.Member;
+          public abstract class XC_MethodHook {
+              public static class MethodHookParam {
+                  public Member method;
+                  public Object thisObject;
+                  public Object[] args;
+                  public Object getResult() { return null; }
+                  public void setResult(Object result) {}
+                  public Throwable getThrowable() { return null; }
+                  public boolean hasThrowable() { return false; }
+                  public void setThrowable(Throwable throwable) {}
+                  public Object getResultOrThrowable() throws Throwable { return null; }
+              }
+              public class Unhook { public void unhook() {} }
+              protected void beforeHookedMethod(MethodHookParam param) throws Throwable {}
+              protected void afterHookedMethod(MethodHookParam param) throws Throwable {}
+          }
+          EOF
+          cat << 'EOF' > stub/de/robv/android/xposed/XC_MethodReplacement.java
+          package de.robv.android.xposed;
+          public abstract class XC_MethodReplacement extends XC_MethodHook {
+              protected abstract Object replaceHookedMethod(MethodHookParam param) throws Throwable;
+          }
+          EOF
+          cat << 'EOF' > stub/de/robv/android/xposed/XposedHelpers.java
+          package de.robv.android.xposed;
+          public class XposedHelpers {
+              public static Class<?> findClass(String className, ClassLoader classLoader) { return null; }
+              public static XC_MethodHook.Unhook findAndHookMethod(String className, ClassLoader classLoader, String methodName, Object... parameterTypesAndCallback) { return null; }
+              public static XC_MethodHook.Unhook findAndHookMethod(Class<?> clazz, String methodName, Object... parameterTypesAndCallback) { return null; }
+              public static Object getObjectField(Object obj, String fieldName) { return null; }
+              public static void setObjectField(Object obj, String fieldName, Object value) {}
+              public static Object callMethod(Object obj, String methodName, Object... args) { return null; }
+          }
+          EOF
+          cat << 'EOF' > stub/de/robv/android/xposed/IXposedHookLoadPackage.java
+          package de.robv.android.xposed;
+          import de.robv.android.xposed.callbacks.XC_LoadPackage;
+          public interface IXposedHookLoadPackage {
+              void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable;
+          }
+          EOF
+          cat << 'EOF' > stub/de/robv/android/xposed/callbacks/XC_LoadPackage.java
+          package de.robv.android.xposed.callbacks;
+          import android.content.pm.ApplicationInfo;
+          public abstract class XC_LoadPackage {
+              public static final class LoadPackageParam {
+                  public String packageName;
+                  public String processName;
+                  public ClassLoader classLoader;
+                  public ApplicationInfo appInfo;
+                  public boolean isFirstApplication;
+              }
+          }
+          EOF
+          javac -cp "$ANDROID_HOME/platforms/android-24/android.jar" stub/de/robv/android/xposed/*.java stub/de/robv/android/xposed/callbacks/*.java
+          jar cf app/libs/api-82.jar -C stub .
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Build Debug APK

@@ -15,7 +15,7 @@ jobs:
       - name: Inspect and Patch servicemanager
         run: |
           arm-linux-gnueabi-objdump -d servicemanager > disasm.txt
-          arm-linux-gnueabi-readelf -S -r -sW servicemanager > elfinfo.txt
+          arm-linux-gnueabi-readelf -S servicemanager > elfinfo.txt
           python3 -c '
           import re, shutil
           with open("disasm.txt") as f:
@@ -24,25 +24,26 @@ jobs:
               elfinfo = f.read()
           tm = re.search(r"\.text\s+PROGBITS\s+([0-9a-f]+)\s+([0-9a-f]+)", elfinfo)
           t_vaddr, t_off = int(tm.group(1), 16), int(tm.group(2), 16)
-          m = re.search(r"([0-9a-f]+)\s+<([^>]*check_mac_perms[^>]*)>:", disasm)
-          if m:
-              vaddr = int(m.group(1), 16)
-              file_off = vaddr - t_vaddr + t_off
-              shutil.copy("servicemanager", "servicemanager_patched")
-              with open("servicemanager_patched", "r+b") as f:
-                  f.seek(file_off)
-                  f.write(b"\x01\x20\x70\x47")
-              print(f"::notice::Patched {m.group(2)} at 0x{file_off:x}")
-          else:
-              # Ищем вызов selinux_check_access@plt в дизассемблере
-              plt = re.search(r"([0-9a-f]+)\s+<selinux_check_access@plt>:", disasm)
-              if not plt:
-                  print("::error::selinux_check_access not found in PLT")
-                  exit(1)
-              plt_addr = plt.group(1)
-              calls = re.findall(rf"^\s*([0-9a-f]+):\s+([0-9a-f ]+)\s+blx?\s+{plt_addr}\b", disasm, re.M)
-              print(f"::error::Stripped binary! text_vaddr=0x{t_vaddr:x} text_off=0x{t_off:x} selinux_check_access@plt=0x{plt_addr} calls={calls}")
+          plt = re.search(r"([0-9a-f]+)\s+<selinux_check_access@plt>:", disasm)
+          plt_short = plt.group(1).lstrip("0")
+          calls = re.findall(rf"^\s*([0-9a-f]+):\s+([0-9a-f ]+)\s+blx?\s+{plt_short}\b", disasm, re.M)
+          print("Found calls to selinux_check_access:", calls)
+          if not calls:
               exit(1)
+          shutil.copy("servicemanager", "servicemanager_patched")
+          with open("servicemanager_patched", "r+b") as f:
+              for addr_s, hex_bytes, *_ in calls:
+                  vaddr = int(addr_s, 16)
+                  file_off = vaddr - t_vaddr + t_off
+                  raw = bytes.fromhex(hex_bytes.replace(" ", ""))
+                  print(f"Patching vaddr=0x{vaddr:x} file_off=0x{file_off:x} len={len(raw)} bytes={raw.hex()}")
+                  f.seek(file_off)
+                  # Заменяем 4-байтовый bl/blx (Thumb-2 или ARM) на возврат r0 = 0 (разрешено)
+                  if len(raw) == 4:
+                      # В Thumb-2 little-endian: movs r0, #0 (00 20) + nop (00 bf)
+                      f.write(b"\x00\x20\x00\xbf")
+                  else:
+                      exit(1)
           '
       - name: Publish Patched servicemanager
         uses: softprops/action-gh-release@v2

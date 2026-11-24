@@ -16,10 +16,12 @@ jobs:
           import glob
           out = []
           for f in glob.glob("qs_smali/**/*.smali", recursive=True):
+              if "Callback" in f:
+                  continue
               txt = open(f).read()
-              if "com.uei.control.IControl" in txt and "onTransact" in txt:
-                  lines = [l.strip().replace(":", "=") for l in txt.splitlines() if "sparse-switch" in l or "0x" in l or "invoke-" in l or ".method" in l]
-                  out.append(f + " -> " + " ; ".join(lines[:35]))
-          print("::error::" + (" || ".join(out) if out else "NOT FOUND")[:3000])
+              if "\"com.uei.control.IControl\"" in txt and "onTransact" in txt:
+                  lines = [l.strip().replace(":", "=") for l in txt.splitlines() if "0x" in l or "invoke-" in l or "createIntArray" in l or "readInt" in l]
+                  out.append(f + " -> " + " ; ".join(lines[:45]))
+          print("::error::" + (" || ".join(out) if out else "NOT FOUND")[:3500])
           exit(1)
           '

@@ -17,24 +17,10 @@ import static de.robv.android.xposed.XposedBridge.log;
  */
 public class InfraredMagic {
 
-    /**
-     * Client API for the QuickSet control service:
-     */
     private IControl mControl;
-
-    /**
-     * Store reference context of hooked ConsumerIrService (as we need it for binding a service)
-     */
     private Context mContext;
-
-    /**
-     * Flag if we have successfully bound the QuickSet service
-     */
     private boolean mBound = false;
 
-    /**
-     * Service Connection used to control the bound QuickSet SDK Service
-     */
     private final ServiceConnection mControlServiceConnection = new ServiceConnection() {
 
         @Override
@@ -52,13 +38,6 @@ public class InfraredMagic {
         }
     };
 
-
-    /**
-     * Try to send Infrared pattern, catch and log exceptions.
-     *
-     * @param carrierFrequency carrier frequency, see ConsumerIrManager Android API
-     * @param pattern          IR pattern to send, see ConsumerIrManager Android API
-     */
     public int transmitIrPattern(int carrierFrequency, int[] pattern) {
         if (mControl == null || !mBound) {
             Log.w(TAG, "QuickSet Service (for using IR Blaster) seems not to be bound. Trying to bind again and exit.");
@@ -66,16 +45,10 @@ public class InfraredMagic {
             return 999;
         }
         try {
-            // Конвертируем микросекунды Android ConsumerIrManager в такты несущей частоты для LG QuickSet SDK:
-            int[] pulses = new int[pattern.length];
-            double factor = carrierFrequency / 1000000.0;
-            for (int i = 0; i < pattern.length; i++) {
-                pulses[i] = Math.max(1, (int) Math.round(pattern[i] * factor));
-            }
-            mControl.transmit(carrierFrequency, pulses);
+            mControl.transmit(carrierFrequency, pattern);
             int resultCode = mControl.getLastResultcode();
             if (resultCode != 0) {
-                Log.w(TAG, "resultCode after calling transmit on QuickSet SDK was != 0. No idea what this means. lastResultcode: " + resultCode);
+                Log.w(TAG, "resultCode after calling transmit on QuickSet SDK was != 0. lastResultcode: " + resultCode);
             }
             return resultCode;
         } catch (Throwable t) {
@@ -84,9 +57,6 @@ public class InfraredMagic {
         }
     }
 
-    /**
-     * Try to bind QuickSet SDK Service
-     */
     public void bindQuickSetService() {
         Log.d(TAG, "Trying to bind QuickSet service (for controlling IR Blaster): " + IControl.QUICKSET_UEI_PACKAGE_NAME + " - " + IControl.QUICKSET_UEI_SERVICE_CLASS);
         if (mContext == null) {
@@ -99,9 +69,7 @@ public class InfraredMagic {
             boolean bindResult = mContext.bindService(controlIntent, mControlServiceConnection, Context.BIND_AUTO_CREATE);
             if (!bindResult) {
                 Log.e(TAG, "bindResult == false. QuickSet SDK service seems NOT TO BE AVAILABLE ON THIS PHONE! IR Blaster will probably NOT WORK!");
-                Log.e(TAG, "QuickSet SDK service package/class: " + IControl.QUICKSET_UEI_PACKAGE_NAME + "/" + IControl.QUICKSET_UEI_SERVICE_CLASS);
                 log(TAG + ": QuickSet SDK service seems NOT TO BE AVAILABLE ON THIS PHONE! IR Blaster will probably NOT WORK!");
-                log(TAG + ": QuickSet SDK service package/class: " + IControl.QUICKSET_UEI_PACKAGE_NAME + "/" + IControl.QUICKSET_UEI_SERVICE_CLASS);
             } else {
                 Log.d(TAG, "bindService() result: true");
             }
@@ -110,13 +78,7 @@ public class InfraredMagic {
         }
     }
 
-    /**
-     * Store reference to context
-     *
-     * @param ctx context
-     */
     public void setContext(Context ctx) {
         this.mContext = ctx;
     }
-
 }

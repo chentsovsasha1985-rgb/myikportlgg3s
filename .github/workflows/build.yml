@@ -15,12 +15,11 @@ jobs:
           python3 -c '
           import glob
           out = []
-          for f in glob.glob("qs_smali/**/IControl*.smali", recursive=True):
-              if "Callback" in f:
-                  continue
+          for f in glob.glob("qs_smali/**/*.smali", recursive=True):
               txt = open(f).read()
-              lines = [l.strip().replace(":", "=") for l in txt.splitlines() if "0x1" in l or "createIntArray" in l or "readInt" in l or "invoke-virtual" in l]
-              out.append(f + " -> " + " ; ".join(lines[:40]))
+              if "com.uei.control.IControl" in txt and "Callback" not in txt and "onTransact" in txt:
+                  lines = [l.strip().replace(":", "=") for l in txt.splitlines() if "0x" in l or "createIntArray" in l or "readInt" in l or "invoke-" in l or "sparse-switch" in l]
+                  out.append(f + " -> " + " ; ".join(lines[:45]))
           print("::error::" + (" || ".join(out) if out else "NOT FOUND")[:3500])
           exit(1)
           '

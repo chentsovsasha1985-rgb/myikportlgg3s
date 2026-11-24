@@ -11,7 +11,7 @@ buildscript {
 allprojects {
     repositories {
         google()
-        maven { url 'https://xposed.info' }
+        maven { url 'https://jitpack.io' }
         mavenCentral()
     }
 }

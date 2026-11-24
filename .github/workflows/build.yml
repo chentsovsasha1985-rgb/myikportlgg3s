@@ -7,10 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up JDK 8
+      - name: Set up JDK 17 for SDK Manager
         uses: actions/setup-java@v4
         with:
-          java-version: '8'
+          java-version: '17'
           distribution: 'temurin'
       - name: Download & Setup Android SDK
         run: |
@@ -20,8 +20,13 @@ jobs:
           mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
           echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+          yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platforms;android-24" "build-tools;24.0.3"
+      - name: Switch to JDK 8 for Gradle 2.x
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Build Debug APK

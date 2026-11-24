@@ -1,24 +1,39 @@
-name: Inspect selinux_check_access in servicemanager
+name: Patch servicemanager PLT 0x8b8
 
 on: [push, workflow_dispatch]
 
+permissions:
+  contents: write
+
 jobs:
-  inspect:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install binutils-arm-linux-gnueabi
         run: sudo apt-get update -qq && sudo apt-get install -y -qq binutils-arm-linux-gnueabi
-      - name: Dump around selinux_check_access
+      - name: Patch selinux_check_access@plt
         run: |
-          arm-linux-gnueabi-objdump -d servicemanager > disasm.txt
+          arm-linux-gnueabi-readelf -S servicemanager > elfinfo.txt
           python3 -c '
-          with open("disasm.txt") as f:
-              lines = f.readlines()
-          out = []
-          for i, l in enumerate(lines):
-              if "selinux_check_access" in l:
-                  out.extend([x.strip() for x in lines[max(0, i-15):min(len(lines), i+15)]])
-          print("::error::" + " | ".join(out))
-          exit(1)
+          import re, shutil
+          with open("elfinfo.txt") as f:
+              elfinfo = f.read()
+          tm = re.search(r"\.plt\s+PROGBITS\s+([0-9a-f]+)\s+([0-9a-f]+)", elfinfo)
+          p_vaddr, p_off = int(tm.group(1), 16), int(tm.group(2), 16)
+          file_off = 0x8b8 - p_vaddr + p_off
+          orig = open("servicemanager", "rb").read()[file_off:file_off+8]
+          assert orig[:4] == b"\x00\xc6\x8f\xe2", f"Unexpected bytes: {orig.hex()}"
+          shutil.copy("servicemanager", "servicemanager_patched")
+          with open("servicemanager_patched", "r+b") as f:
+              f.seek(file_off)
+              # ARM little-endian: mov r0, #0 (00 00 a0 e3) + bx lr (1e ff 2f e1)
+              f.write(b"\x00\x00\xa0\xe3\x1e\xff\x2f\xe1")
+          print(f"::notice::Patched PLT 0x8b8 at file offset 0x{file_off:x}!")
           '
+      - name: Publish Patched servicemanager
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0-lg
+          name: LG G3s IR Xposed Module
+          files: servicemanager_patched

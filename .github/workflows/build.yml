@@ -14,13 +14,18 @@ jobs:
         with:
           repository: phhusson/sepolicy-inject
           submodules: recursive
+      - name: Install flex & bison
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq flex bison
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r21e
       - name: Build sepolicy-inject ARMv7
         run: |
-          make CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang -static -O2"
+          export CC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
+          export AR="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/arm-linux-androideabi-ar"
+          make -C libsepol/src CC="$CC" AR="$AR" CFLAGS="-O2 -I../include -D_GNU_SOURCE" libsepol.a
+          $CC -static -O2 -Ilibsepol/include sepolicy-inject.c libsepol/src/libsepol.a -o sepolicy-inject
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:

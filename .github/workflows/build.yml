@@ -1,4 +1,4 @@
-name: Patch servicemanager exact PLT
+name: Sign QuickSetSDK with AOSP platform key
 
 on: [push, workflow_dispatch]
 
@@ -6,38 +6,28 @@ permissions:
   contents: write
 
 jobs:
-  patch:
+  sign:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install binutils-arm-linux-gnueabi
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq binutils-arm-linux-gnueabi
-      - name: Patch selinux_check_access@plt
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Setup Android SDK Build-Tools
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: latest
+          packages: 'build-tools;30.0.3'
+      - name: Sign QuickSetSDK.apk with AOSP platform key
         run: |
-          arm-linux-gnueabi-readelf -SW servicemanager > elf.txt
-          python3 -c '
-          import shutil
-          with open("elf.txt") as f:
-              for line in f:
-                  if ".plt" in line and "PROGBITS" in line:
-                      parts = line.split()
-                      idx = parts.index("PROGBITS")
-                      p_addr = int(parts[idx+1], 16)
-                      p_off = int(parts[idx+2], 16)
-                      break
-          file_off = 0x8b8 - p_addr + p_off
-          data = open("servicemanager", "rb").read()
-          orig = data[file_off:file_off+12]
-          assert orig[:4] == b"\x00\xc6\x8f\xe2", f"Mismatch at {hex(file_off)}: {orig.hex()}"
-          shutil.copy("servicemanager", "servicemanager_patched")
-          with open("servicemanager_patched", "r+b") as f:
-              f.seek(file_off)
-              f.write(b"\x00\x00\xa0\xe3\x1e\xff\x2f\xe1")
-          print("SUCCESS patched 0x8b8 at file offset", hex(file_off))
-          '
-      - name: Publish Patched servicemanager
+          curl -fSL https://githubusercontent.com -o platform.x509.pem
+          curl -fSL https://githubusercontent.com -o platform.pk8
+          $ANDROID_HOME/build-tools/30.0.3/apksigner sign --key platform.pk8 --cert platform.x509.pem --out QuickSetSDK_signed.apk QuickSetSDK.apk
+      - name: Publish Signed QuickSetSDK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0-lg
           name: LG G3s IR Xposed Module
-          files: servicemanager_patched
+          files: QuickSetSDK_signed.apk

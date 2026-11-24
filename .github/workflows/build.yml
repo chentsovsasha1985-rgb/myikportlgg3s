@@ -1,51 +1,24 @@
-name: Patch servicemanager ARMv7
+name: Inspect selinux_check_access in servicemanager
 
 on: [push, workflow_dispatch]
 
-permissions:
-  contents: write
-
 jobs:
-  patch:
+  inspect:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install binutils-arm-linux-gnueabi
         run: sudo apt-get update -qq && sudo apt-get install -y -qq binutils-arm-linux-gnueabi
-      - name: Inspect and Patch servicemanager
+      - name: Dump around selinux_check_access
         run: |
           arm-linux-gnueabi-objdump -d servicemanager > disasm.txt
-          arm-linux-gnueabi-readelf -S servicemanager > elfinfo.txt
           python3 -c '
-          import re, shutil
           with open("disasm.txt") as f:
-              disasm = f.read()
-          with open("elfinfo.txt") as f:
-              elfinfo = f.read()
-          tm = re.search(r"\.text\s+PROGBITS\s+([0-9a-f]+)\s+([0-9a-f]+)", elfinfo)
-          t_vaddr, t_off = int(tm.group(1), 16), int(tm.group(2), 16)
-          # Ищем все строки, где встречается 8b8 или selinux_check_access
-          matches = [line.strip() for line in disasm.splitlines() if "8b8" in line or "selinux_check_access" in line]
-          calls = []
-          for line in matches:
-              m = re.match(r"^([0-9a-f]+):\s+([0-9a-f]{4}\s+[0-9a-f]{4}|[0-9a-f]{8})\s+bl", line)
-              if m:
-                  calls.append((m.group(1), m.group(2)))
-          if not calls:
-              print("::error::Matches:", " | ".join(matches[:10]))
-              exit(1)
-          shutil.copy("servicemanager", "servicemanager_patched")
-          with open("servicemanager_patched", "r+b") as f:
-              for addr_s, hex_bytes in calls:
-                  vaddr = int(addr_s, 16)
-                  file_off = vaddr - t_vaddr + t_off
-                  f.seek(file_off)
-                  f.write(b"\x00\x20\x00\xbf")
-          print(f"::notice::Successfully patched {len(calls)} calls: {calls}")
+              lines = f.readlines()
+          out = []
+          for i, l in enumerate(lines):
+              if "selinux_check_access" in l:
+                  out.extend([x.strip() for x in lines[max(0, i-15):min(len(lines), i+15)]])
+          print("::error::" + " | ".join(out))
+          exit(1)
           '
-      - name: Publish Patched servicemanager
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0-lg
-          name: LG G3s IR Xposed Module
-          files: servicemanager_patched

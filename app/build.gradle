@@ -2,7 +2,7 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 24
-    buildToolsVersion "24.0.3"
+    buildToolsVersion "27.0.3"
 
     defaultConfig {
         applicationId "at.zweng.xposed.lepro3infrared"
@@ -19,6 +19,5 @@ android {
 }
 
 dependencies {
-    compileOnly 'de.robv.android.xposed:api:82'
-    compileOnly 'de.robv.android.xposed:api:82:sources'
+    compileOnly 'com.github.rovo89:XposedBridgeApi:82'
 }

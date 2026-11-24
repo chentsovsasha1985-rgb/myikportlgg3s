@@ -18,7 +18,7 @@ public class IControl {
      * Check this on the phone via "adb shell" with:
      * > pm list packages | grep quickset
      */
-    public static final String QUICKSET_UEI_PACKAGE_NAME = "com.uei.quicksetsdk.letv";
+    public static final String QUICKSET_UEI_PACKAGE_NAME = "com.uei.lg.quicksetsdk.lite";
 
     /**
      * This is the service class name within the Quickset Package.

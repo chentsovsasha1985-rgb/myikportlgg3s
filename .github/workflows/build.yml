@@ -15,16 +15,24 @@ jobs:
           python3 -c '
           import shutil
           data = open("servicemanager", "rb").read()
-          # В PIE ELF для Android файл отображается с нулевого смещения: vaddr 0x8b8 == file offset 0x8b8
-          file_off = 0x8b8
-          orig = data[file_off:file_off+12]
-          assert orig[:4] == b"\x00\xc6\x8f\xe2", f"Unexpected bytes at 0x8b8: {orig.hex()}"
+          # Ищем все PLT-трамплины вида: add ip, pc, #0, 12 (00 c6 8f e2) рядом со смещением 0x8b8
+          idx = -1
+          for off in range(0x700, 0xa00, 4):
+              if data[off:off+4] == b"\x00\xc6\x8f\xe2":
+                  # Проверяем: в дизассемблере 0x8b8 шёл сразу после 0x8ac (0x8b8 - 0x8ac = 12 байт)
+                  if data[off-12:off-8] == b"\x00\xc6\x8f\xe2" and data[off+12:off+16] == b"\x00\xc6\x8f\xe2":
+                      # Находим именно тот, у которого смещение заканчивается на 0xb8 (с учётом сдвига сегмента)
+                      if (off & 0xff) == 0xb8 or abs(off - 0x8b8) <= 0x100:
+                          print(f"Candidate at 0x{off:x}: {data[off:off+12].hex()}")
+          # Точный поиск по младшему байту смещения 0xb8:
+          matches = [off for off in range(0x600, 0xc00, 4) if data[off:off+4] == b"\x00\xc6\x8f\xe2" and (off & 0xff) == 0xb8]
+          assert len(matches) == 1, f"Matches: {[hex(x) for x in matches]}"
+          file_off = matches[0]
           shutil.copy("servicemanager", "servicemanager_patched")
           with open("servicemanager_patched", "r+b") as f:
               f.seek(file_off)
-              # ARM little-endian: mov r0, #0 (00 00 a0 e3) + bx lr (1e ff 2f e1)
               f.write(b"\x00\x00\xa0\xe3\x1e\xff\x2f\xe1")
-          print(f"::notice::Verified and patched PLT 0x8b8 (was {orig.hex()})!")
+          print(f"::notice::Patched PLT at 0x{file_off:x}!")
           '
       - name: Publish Patched servicemanager
         uses: softprops/action-gh-release@v2

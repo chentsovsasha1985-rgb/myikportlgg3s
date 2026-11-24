@@ -15,8 +15,8 @@ jobs:
           python3 -c '
           import shutil
           data = open("servicemanager", "rb").read()
-          matches = [off for off in range(0x600, 0xc00, 4) if data[off:off+4] == b"\x00\xc6\x8f\xe2" and (off & 0xff) == 0xb8]
-          assert len(matches) == 1, str(matches)
+          matches = [off for off in range(0, len(data) - 12, 4) if data[off:off+4] == b"\x00\xc6\x8f\xe2" and (off & 0xff) == 0xb8]
+          assert len(matches) == 1, str([hex(x) for x in matches])
           file_off = next(iter(matches))
           shutil.copy("servicemanager", "servicemanager_patched")
           with open("servicemanager_patched", "r+b") as f:

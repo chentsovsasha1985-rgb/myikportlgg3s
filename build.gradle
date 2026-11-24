@@ -1,18 +1,16 @@
 buildscript {
     repositories {
-        maven { url 'https://google.com' }
-        maven { url 'https://aliyun.com' }
+        google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:2.2.2'
+        classpath 'com.android.tools.build:gradle:3.1.4'
     }
 }
 
 allprojects {
     repositories {
-        maven { url 'https://google.com' }
-        maven { url 'https://aliyun.com' }
+        google()
         maven { url 'https://xposed.info' }
         mavenCentral()
     }

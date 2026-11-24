@@ -9,7 +9,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install apktool
         run: sudo apt-get update -qq && sudo apt-get install -y -qq apktool
-      - name: Dump IControl Stub transactions
+      - name: Dump IControl onTransact
         run: |
           apktool d -f QuickSetSDK.apk -o qs_smali
           python3 -c '
@@ -17,9 +17,9 @@ jobs:
           out = []
           for f in glob.glob("qs_smali/**/*.smali", recursive=True):
               txt = open(f).read()
-              if "TRANSACTION_" in txt:
-                  lines = [l.strip() for l in txt.splitlines() if "TRANSACTION_" in l]
-                  out.append(f.split("/")[-1] + ": " + ", ".join(lines))
-          print("::error::" + " | ".join(out)[:3500])
+              if "com.uei.control.IControl" in txt and "onTransact" in txt:
+                  lines = [l.strip().replace(":", "=") for l in txt.splitlines() if "sparse-switch" in l or "0x" in l or "invoke-" in l or ".method" in l]
+                  out.append(f + " -> " + " ; ".join(lines[:35]))
+          print("::error::" + (" || ".join(out) if out else "NOT FOUND")[:3000])
           exit(1)
           '

@@ -13,11 +13,12 @@ jobs:
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r21e
-      - name: Clone & Build sepolicy-inject
+      - name: Clone & Build phhusson sepolicy-inject
         run: |
-          git clone https://github.com
+          git clone --depth 1 https://github.com
           cd sepolicy-inject
-          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang -static -O2 *.c -o sepolicy-inject
+          git submodule update --init --recursive || true
+          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang -static -O2 -Ilibsepol/include -Ilibsepol/src sepolicy-inject.c libsepol/src/*.c -o sepolicy-inject
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:

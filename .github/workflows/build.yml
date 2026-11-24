@@ -15,28 +15,34 @@ jobs:
       - name: Inspect and Patch servicemanager
         run: |
           arm-linux-gnueabi-objdump -d servicemanager > disasm.txt
+          arm-linux-gnueabi-readelf -S -r -sW servicemanager > elfinfo.txt
           python3 -c '
           import re, shutil
           with open("disasm.txt") as f:
-              text = f.read()
-          # Ищем функцию check_mac_perms или место вызова selinux_check_access
-          m = re.search(r"([0-9a-f]+)\s+<([^>]*check_mac_perms[^>]*)>:", text)
-          if not m:
-              print("::error::Function not found, functions:", re.findall(r"<([^>]+)>:", text))
-              exit(1)
-          vaddr = int(m.group(1), 16)
-          print(f"Found {m.group(2)} at vaddr 0x{vaddr:x}")
-          # В PIE ELF для Android base offset = 0x0, проверяем секцию .text через readelf
-          import subprocess
-          out = subprocess.check_output(["arm-linux-gnueabi-readelf", "-S", "servicemanager"]).decode()
-          tm = re.search(r"\.text\s+PROGBITS\s+([0-9a-f]+)\s+([0-9a-f]+)", out)
+              disasm = f.read()
+          with open("elfinfo.txt") as f:
+              elfinfo = f.read()
+          tm = re.search(r"\.text\s+PROGBITS\s+([0-9a-f]+)\s+([0-9a-f]+)", elfinfo)
           t_vaddr, t_off = int(tm.group(1), 16), int(tm.group(2), 16)
-          file_off = vaddr - t_vaddr + t_off
-          print(f"Patching file offset 0x{file_off:x} (bytes: {open(\"servicemanager\",\"rb\").read()[file_off:file_off+4].hex()})")
-          shutil.copy("servicemanager", "servicemanager_patched")
-          with open("servicemanager_patched", "r+b") as f:
-              f.seek(file_off)
-              f.write(b"\x01\x20\x70\x47")
+          m = re.search(r"([0-9a-f]+)\s+<([^>]*check_mac_perms[^>]*)>:", disasm)
+          if m:
+              vaddr = int(m.group(1), 16)
+              file_off = vaddr - t_vaddr + t_off
+              shutil.copy("servicemanager", "servicemanager_patched")
+              with open("servicemanager_patched", "r+b") as f:
+                  f.seek(file_off)
+                  f.write(b"\x01\x20\x70\x47")
+              print(f"::notice::Patched {m.group(2)} at 0x{file_off:x}")
+          else:
+              # Ищем вызов selinux_check_access@plt в дизассемблере
+              plt = re.search(r"([0-9a-f]+)\s+<selinux_check_access@plt>:", disasm)
+              if not plt:
+                  print("::error::selinux_check_access not found in PLT")
+                  exit(1)
+              plt_addr = plt.group(1)
+              calls = re.findall(rf"^\s*([0-9a-f]+):\s+([0-9a-f ]+)\s+blx?\s+{plt_addr}\b", disasm, re.M)
+              print(f"::error::Stripped binary! text_vaddr=0x{t_vaddr:x} text_off=0x{t_off:x} selinux_check_access@plt=0x{plt_addr} calls={calls}")
+              exit(1)
           '
       - name: Publish Patched servicemanager
         uses: softprops/action-gh-release@v2

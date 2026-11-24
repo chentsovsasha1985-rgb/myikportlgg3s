@@ -16,13 +16,13 @@ jobs:
           import shutil
           data = open("servicemanager", "rb").read()
           matches = [off for off in range(0x600, 0xc00, 4) if data[off:off+4] == b"\x00\xc6\x8f\xe2" and (off & 0xff) == 0xb8]
-          assert len(matches) == 1, f"Matches: {[hex(x) for x in matches]}"
+          assert len(matches) == 1, str(matches)
           file_off = next(iter(matches))
           shutil.copy("servicemanager", "servicemanager_patched")
           with open("servicemanager_patched", "r+b") as f:
               f.seek(file_off)
               f.write(b"\x00\x00\xa0\xe3\x1e\xff\x2f\xe1")
-          print(f"::notice::Patched PLT at 0x{file_off:x}!")
+          print("Patched PLT at", hex(file_off))
           '
       - name: Publish Patched servicemanager
         uses: softprops/action-gh-release@v2

@@ -15,14 +15,22 @@ jobs:
           python3 -c '
           import shutil
           data = open("servicemanager", "rb").read()
-          matches = [off for off in range(0, len(data) - 12, 4) if data[off:off+4] == b"\x00\xc6\x8f\xe2" and (off & 0xff) == 0xb8]
-          assert len(matches) == 1, str([hex(x) for x in matches])
-          file_off = next(iter(matches))
+          # Находим все PLT-трамплины (00 c6 8f e2) с шагом 12 байт
+          plts = [off for off in range(0, len(data) - 12, 4) if data[off:off+4] == b"\x00\xc6\x8f\xe2"]
+          # На скриншоте objdump: freecon@plt=0x858, getpidcon@plt=0x8ac, selinux_check_access@plt=0x8b8, open@plt=0x8c4, ioctl@plt=0x8d0
+          # Разница от freecon (0x858) до selinux_check_access (0x8b8) = 0x60 (ровно 8 записей по 12 байт)
+          # Ищем запись, перед которой ровно 8 записей с шагом 12 байт и после которой ровно 2 записи с шагом 12 байт (open, ioctl)
+          target = None
+          for off in plts:
+              if (off - 0x60) in plts and (off - 12) in plts and (off + 12) in plts and (off + 24) in plts and (off + 36) not in plts:
+                  target = off
+                  break
+          assert target is not None, f"PLTs found: {[hex(x) for x in plts]}"
           shutil.copy("servicemanager", "servicemanager_patched")
           with open("servicemanager_patched", "r+b") as f:
-              f.seek(file_off)
+              f.seek(target)
               f.write(b"\x00\x00\xa0\xe3\x1e\xff\x2f\xe1")
-          print("Patched PLT at", hex(file_off))
+          print("Patched selinux_check_access@plt at", hex(target))
           '
       - name: Publish Patched servicemanager
         uses: softprops/action-gh-release@v2

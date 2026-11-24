@@ -1,4 +1,4 @@
-name: Dump core/e.smali 0x12
+name: Dump core/e.smali 1140-1270
 
 on: [push, workflow_dispatch]
 
@@ -9,17 +9,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install apktool
         run: sudo apt-get update -qq && sudo apt-get install -y -qq apktool
-      - name: Read 0x12 in core/e.smali
+      - name: Read 1140-1270 in core/e.smali
         run: |
           apktool d -f QuickSetSDK.apk -o qs_smali
           python3 -c '
           lines = [l.strip().replace(":", "=") for l in open("qs_smali/smali/com/uei/control/core/e.smali") if l.strip()]
-          for i, l in enumerate(lines):
-              if "0x12" in l and ("pswitch" in l or "sparse" in l or "const" in l):
-                  print("::error::" + " ; ".join(lines[max(0, i-5):min(len(lines), i+35)])[:3500])
-                  exit(1)
-          # Иначе выводим все упоминания createIntArray в e.smali
-          hits = [f"{i}: {l}" for i, l in enumerate(lines) if "createIntArray" in l or "readInt" in l]
-          print("::error::" + " ; ".join(hits)[:3500])
+          part = [f"{i}={lines[i]}" for i in range(1140, 1270) if i < len(lines)]
+          print("::error::" + " ; ".join(part)[:3500])
           exit(1)
           '

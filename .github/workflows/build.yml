@@ -14,12 +14,12 @@ jobs:
           apktool d -f QuickSetSDK.apk -o qs_smali
           python3 -c '
           import glob
-          files = glob.glob("qs_smali/**/IControl$Stub.smali", recursive=True) + glob.glob("qs_smali/**/IControl*.smali", recursive=True)
           out = []
-          for f in files:
+          for f in glob.glob("qs_smali/**/*.smali", recursive=True):
               txt = open(f).read()
-              if "TRANSACTION_" in txt or "transmit" in txt.lower():
-                  out.append(f + ":\n" + "\n".join([l.strip() for l in txt.splitlines() if "TRANSACTION_" in l or "method " in l or "const/16" in l or "const/4" in l][:40]))
-          print("::error::" + " === ".join(out)[:3500])
+              if "TRANSACTION_" in txt:
+                  lines = [l.strip() for l in txt.splitlines() if "TRANSACTION_" in l]
+                  out.append(f.split("/")[-1] + ": " + ", ".join(lines))
+          print("::error::" + " | ".join(out)[:3500])
           exit(1)
           '

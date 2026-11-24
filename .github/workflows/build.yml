@@ -1,4 +1,4 @@
-name: Patch servicemanager avc_denied
+name: Patch servicemanager exact PLT
 
 on: [push, workflow_dispatch]
 
@@ -12,20 +12,32 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install binutils-arm-linux-gnueabi
         run: sudo apt-get update -qq && sudo apt-get install -y -qq binutils-arm-linux-gnueabi
-      - name: Find and Patch check_mac_perms
+      - name: Patch selinux_check_access@plt
         run: |
-          arm-linux-gnueabi-objdump -d servicemanager > disasm.txt
+          arm-linux-gnueabi-readelf -SW servicemanager > elf.txt
           python3 -c '
           import shutil
+          with open("elf.txt") as f:
+              for line in f:
+                  if ".plt" in line and "PROGBITS" in line:
+                      parts = line.split()
+                      idx = parts.index("PROGBITS")
+                      p_addr = int(parts[idx+1], 16)
+                      p_off = int(parts[idx+2], 16)
+                      break
+          file_off = 0x8b8 - p_addr + p_off
           data = open("servicemanager", "rb").read()
-          # Находим строку "avc:  denied" в файле
-          str_off = data.find(b"avc:  denied")
-          assert str_off != -1, "String not found"
-          # В ARM32 функция check_mac_perms загружает адрес этой строки через PC-relative ldr rX, [pc, #imm]
-          # Выводим все функции в disasm.txt, где встречается ссылка на str_off или selinux
-          with open("disasm.txt") as f:
-              lines = f.readlines()
-          hits = [l.strip() for l in lines if hex(str_off)[2:] in l or "selinux" in l or "avc" in l or "freecon" in l or "getpidcon" in l]
-          print("::error::" + " | ".join(hits[:25]))
-          exit(1)
+          orig = data[file_off:file_off+12]
+          assert orig[:4] == b"\x00\xc6\x8f\xe2", f"Mismatch at {hex(file_off)}: {orig.hex()}"
+          shutil.copy("servicemanager", "servicemanager_patched")
+          with open("servicemanager_patched", "r+b") as f:
+              f.seek(file_off)
+              f.write(b"\x00\x00\xa0\xe3\x1e\xff\x2f\xe1")
+          print("SUCCESS patched 0x8b8 at file offset", hex(file_off))
           '
+      - name: Publish Patched servicemanager
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0-lg
+          name: LG G3s IR Xposed Module
+          files: servicemanager_patched

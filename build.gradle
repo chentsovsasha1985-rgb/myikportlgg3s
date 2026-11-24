@@ -1,25 +1,23 @@
-name: Build LG IR Xposed APK
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
 
-on: [push, workflow_dispatch]
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.2.2'
 
-jobs:
-  build:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK 8
-        uses: actions/setup-java@v4
-        with:
-          java-version: '8'
-          distribution: 'temurin'
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: LG-IR-Xposed-Module
-          path: app/build/outputs/apk/**/*.apk
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+allprojects {
+    repositories {
+        jcenter()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

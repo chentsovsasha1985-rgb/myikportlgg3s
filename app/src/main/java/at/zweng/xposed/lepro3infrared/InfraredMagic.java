@@ -45,7 +45,12 @@ public class InfraredMagic {
             return 999;
         }
         try {
-            mControl.transmit(carrierFrequency, pattern);
+            int[] pulses = new int[pattern.length];
+            double factor = carrierFrequency / 1000000.0;
+            for (int i = 0; i < pattern.length; i++) {
+                pulses[i] = Math.max(1, (int) Math.round(pattern[i] * factor));
+            }
+            mControl.transmit(carrierFrequency, pulses);
             int resultCode = mControl.getLastResultcode();
             if (resultCode != 0) {
                 Log.w(TAG, "resultCode after calling transmit on QuickSet SDK was != 0. lastResultcode: " + resultCode);

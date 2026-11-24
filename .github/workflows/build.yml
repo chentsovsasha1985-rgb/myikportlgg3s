@@ -20,10 +20,10 @@ jobs:
           ndk-version: r21e
       - name: Build sepolicy-inject ARMv7
         run: |
-          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang -static -O2 -Ilibsepol/include -Ilibsepol/src sepolicy-inject.c libsepol/src/*.c -o sepolicy-inject
+          $ANDROID_NDK_HOME/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=Android.mk APP_ABI=armeabi-v7a APP_PLATFORM=android-21 APP_LDFLAGS="-static"
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0-lg
           name: LG G3s IR Xposed Module
-          files: sepolicy-inject
+          files: libs/armeabi-v7a/sepolicy-inject

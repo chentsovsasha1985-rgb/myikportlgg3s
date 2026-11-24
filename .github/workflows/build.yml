@@ -24,26 +24,24 @@ jobs:
               elfinfo = f.read()
           tm = re.search(r"\.text\s+PROGBITS\s+([0-9a-f]+)\s+([0-9a-f]+)", elfinfo)
           t_vaddr, t_off = int(tm.group(1), 16), int(tm.group(2), 16)
-          plt = re.search(r"([0-9a-f]+)\s+<selinux_check_access@plt>:", disasm)
-          plt_short = plt.group(1).lstrip("0")
-          calls = re.findall(rf"^\s*([0-9a-f]+):\s+([0-9a-f ]+)\s+blx?\s+{plt_short}\b", disasm, re.M)
-          print("Found calls to selinux_check_access:", calls)
+          # Ищем все строки, где встречается 8b8 или selinux_check_access
+          matches = [line.strip() for line in disasm.splitlines() if "8b8" in line or "selinux_check_access" in line]
+          calls = []
+          for line in matches:
+              m = re.match(r"^([0-9a-f]+):\s+([0-9a-f]{4}\s+[0-9a-f]{4}|[0-9a-f]{8})\s+bl", line)
+              if m:
+                  calls.append((m.group(1), m.group(2)))
           if not calls:
+              print("::error::Matches:", " | ".join(matches[:10]))
               exit(1)
           shutil.copy("servicemanager", "servicemanager_patched")
           with open("servicemanager_patched", "r+b") as f:
-              for addr_s, hex_bytes, *_ in calls:
+              for addr_s, hex_bytes in calls:
                   vaddr = int(addr_s, 16)
                   file_off = vaddr - t_vaddr + t_off
-                  raw = bytes.fromhex(hex_bytes.replace(" ", ""))
-                  print(f"Patching vaddr=0x{vaddr:x} file_off=0x{file_off:x} len={len(raw)} bytes={raw.hex()}")
                   f.seek(file_off)
-                  # Заменяем 4-байтовый bl/blx (Thumb-2 или ARM) на возврат r0 = 0 (разрешено)
-                  if len(raw) == 4:
-                      # В Thumb-2 little-endian: movs r0, #0 (00 20) + nop (00 bf)
-                      f.write(b"\x00\x20\x00\xbf")
-                  else:
-                      exit(1)
+                  f.write(b"\x00\x20\x00\xbf")
+          print(f"::notice::Successfully patched {len(calls)} calls: {calls}")
           '
       - name: Publish Patched servicemanager
         uses: softprops/action-gh-release@v2

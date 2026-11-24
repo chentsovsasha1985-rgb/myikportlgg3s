@@ -60,15 +60,19 @@ public class InfraredMagic {
      * @param pattern          IR pattern to send, see ConsumerIrManager Android API
      */
     public int transmitIrPattern(int carrierFrequency, int[] pattern) {
-        //Log.d(TAG, "transmitIrPattern called: freq: " + carrierFrequency + ", pattern-len: " + pattern.length);
         if (mControl == null || !mBound) {
             Log.w(TAG, "QuickSet Service (for using IR Blaster) seems not to be bound. Trying to bind again and exit.");
             bindQuickSetService();
-            // return something != 0 to indicate error
             return 999;
         }
         try {
-            mControl.transmit(carrierFrequency, pattern);
+            // Конвертируем микросекунды Android ConsumerIrManager в такты несущей частоты для LG QuickSet SDK:
+            int[] pulses = new int[pattern.length];
+            double factor = carrierFrequency / 1000000.0;
+            for (int i = 0; i < pattern.length; i++) {
+                pulses[i] = Math.max(1, (int) Math.round(pattern[i] * factor));
+            }
+            mControl.transmit(carrierFrequency, pulses);
             int resultCode = mControl.getLastResultcode();
             if (resultCode != 0) {
                 Log.w(TAG, "resultCode after calling transmit on QuickSet SDK was != 0. No idea what this means. lastResultcode: " + resultCode);
@@ -76,7 +80,6 @@ public class InfraredMagic {
             return resultCode;
         } catch (Throwable t) {
             Log.e(TAG, "Exception while trying to send command to QuickSet Service. :-(", t);
-            // return something != 0 to indicate error
             return 999;
         }
     }

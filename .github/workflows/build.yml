@@ -1,4 +1,4 @@
-name: Sign QuickSetSDK with CM13 platform key
+name: Make QuickSetSDK system_app
 
 on: [push, workflow_dispatch]
 
@@ -25,14 +25,25 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+      - name: Install apktool
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq apktool
       - name: Setup Android SDK Build-Tools
         uses: android-actions/setup-android@v3
         with:
           cmdline-tools-version: latest
           packages: 'build-tools;30.0.3'
-      - name: Sign QuickSetSDK.apk with CM13 platform key
+      - name: Add sharedUserId system and sign
         run: |
-          $ANDROID_HOME/build-tools/30.0.3/apksigner sign --v1-signing-enabled true --v2-signing-enabled false --key build_keys/target/product/security/platform.pk8 --cert build_keys/target/product/security/platform.x509.pem --out QuickSetSDK_signed.apk QuickSetSDK.apk
+          apktool d -s -f QuickSetSDK.apk -o qs_dec
+          python3 -c '
+          p = "qs_dec/AndroidManifest.xml"
+          txt = open(p).read()
+          if "sharedUserId" not in txt:
+              txt = txt.replace("<manifest ", "<manifest android:sharedUserId=\"android.uid.system\" ", 1)
+          open(p, "w").write(txt)
+          '
+          apktool b qs_dec -o QuickSetSDK_sys_unsigned.apk
+          $ANDROID_HOME/build-tools/30.0.3/apksigner sign --v1-signing-enabled true --v2-signing-enabled false --key build_keys/target/product/security/platform.pk8 --cert build_keys/target/product/security/platform.x509.pem --out QuickSetSDK_signed.apk QuickSetSDK_sys_unsigned.apk
       - name: Publish Signed QuickSetSDK
         uses: softprops/action-gh-release@v2
         with:

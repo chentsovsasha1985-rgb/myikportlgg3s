@@ -9,19 +9,21 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout sepolicy-inject
+        uses: actions/checkout@v4
+        with:
+          repository: phhusson/sepolicy-inject
+          submodules: recursive
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r21e
-      - name: Clone & Build phhusson sepolicy-inject
+      - name: Build sepolicy-inject ARMv7
         run: |
-          git clone --depth 1 https://github.com
-          cd sepolicy-inject
-          git submodule update --init --recursive || true
           $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang -static -O2 -Ilibsepol/include -Ilibsepol/src sepolicy-inject.c libsepol/src/*.c -o sepolicy-inject
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0-lg
           name: LG G3s IR Xposed Module
-          files: sepolicy-inject/sepolicy-inject
+          files: sepolicy-inject

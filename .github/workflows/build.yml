@@ -17,7 +17,7 @@ jobs:
           data = open("servicemanager", "rb").read()
           matches = [off for off in range(0x600, 0xc00, 4) if data[off:off+4] == b"\x00\xc6\x8f\xe2" and (off & 0xff) == 0xb8]
           assert len(matches) == 1, f"Matches: {[hex(x) for x in matches]}"
-          file_off = matches[0]
+          file_off = next(iter(matches))
           shutil.copy("servicemanager", "servicemanager_patched")
           with open("servicemanager_patched", "r+b") as f:
               f.seek(file_off)

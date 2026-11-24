@@ -1,4 +1,4 @@
-name: Sign QuickSetSDK with AOSP platform key
+name: Sign QuickSetSDK with CM13 platform key
 
 on: [push, workflow_dispatch]
 
@@ -20,11 +20,11 @@ jobs:
         with:
           cmdline-tools-version: latest
           packages: 'build-tools;30.0.3'
-      - name: Sign QuickSetSDK.apk with AOSP platform key
+      - name: Sign QuickSetSDK.apk with CM13 platform key
         run: |
           curl -fSL https://githubusercontent.com -o platform.x509.pem
           curl -fSL https://githubusercontent.com -o platform.pk8
-          $ANDROID_HOME/build-tools/30.0.3/apksigner sign --key platform.pk8 --cert platform.x509.pem --out QuickSetSDK_signed.apk QuickSetSDK.apk
+          $ANDROID_HOME/build-tools/30.0.3/apksigner sign --v1-signing-enabled true --v2-signing-enabled false --key platform.pk8 --cert platform.x509.pem --out QuickSetSDK_signed.apk QuickSetSDK.apk
       - name: Publish Signed QuickSetSDK
         uses: softprops/action-gh-release@v2
         with:

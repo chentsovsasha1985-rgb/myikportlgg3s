@@ -1,4 +1,4 @@
-name: Dump core/e.smali 1240-1310
+name: Verify switch_f in core/e.smali
 
 on: [push, workflow_dispatch]
 
@@ -9,12 +9,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install apktool
         run: sudo apt-get update -qq && sudo apt-get install -y -qq apktool
-      - name: Read 1240-1310 in core/e.smali
+      - name: Check switch_f and method a(I[I)I
         run: |
           apktool d -f QuickSetSDK.apk -o qs_smali
           python3 -c '
-          lines = [l.strip().replace(":", "=") for l in open("qs_smali/smali/com/uei/control/core/e.smali") if l.strip()]
-          part = [f"{i}={lines[i]}" for i in range(1240, 1310) if i < len(lines)]
-          print("::error::" + " ; ".join(part)[:3500])
+          txt = open("qs_smali/smali/com/uei/control/core/e.smali").read()
+          lines = [l.strip().replace(":", "=") for l in txt.splitlines() if l.strip()]
+          sw = [f"{i}={l}" for i, l in enumerate(lines) if "switch_f" in l or "sparse-switch" in l]
+          idx = txt.find(".method public a(I[I)I")
+          m = [l.strip().replace(":", "=") for l in txt[idx:idx+1500].splitlines() if l.strip()]
+          print("::error::SW=" + " ; ".join(sw) + " || METHOD=" + " ; ".join(m[:30]))
           exit(1)
           '

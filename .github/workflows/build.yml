@@ -17,7 +17,6 @@ jobs:
           idx = txt.find("onTransact")
           part = txt[idx:]
           lines = [l.strip().replace(":", "=") for l in part.splitlines() if l.strip()]
-          # Выводим вторую половину onTransact (где ветки 0x10..0x14)
-          print("::error::" + " ; ".join(lines[-85:])[:3500])
+          print("::error::" + " ; ".join(lines[:75])[:3500])
           exit(1)
           '

@@ -33,10 +33,16 @@ jobs:
           cat << 'EOF' > stub/de/robv/android/xposed/XposedBridge.java
           package de.robv.android.xposed;
           import java.lang.reflect.Member;
+          import java.util.Collections;
+          import java.util.Set;
           public class XposedBridge {
+              public static int getXposedVersion() { return 82; }
               public static void log(String text) {}
               public static void log(Throwable t) {}
               public static XC_MethodHook.Unhook hookMethod(Member hookMethod, XC_MethodHook callback) { return null; }
+              public static Set<XC_MethodHook.Unhook> hookAllMethods(Class<?> hookClass, String methodName, XC_MethodHook callback) { return Collections.emptySet(); }
+              public static Set<XC_MethodHook.Unhook> hookAllConstructors(Class<?> hookClass, XC_MethodHook callback) { return Collections.emptySet(); }
+              public static Object invokeOriginalMethod(Member method, Object thisObject, Object[] args) throws Throwable { return null; }
           }
           EOF
           cat << 'EOF' > stub/de/robv/android/xposed/XC_MethodHook.java
@@ -63,6 +69,14 @@ jobs:
           package de.robv.android.xposed;
           public abstract class XC_MethodReplacement extends XC_MethodHook {
               protected abstract Object replaceHookedMethod(MethodHookParam param) throws Throwable;
+              public static XC_MethodReplacement returnConstant(final Object result) {
+                  return new XC_MethodReplacement() {
+                      protected Object replaceHookedMethod(MethodHookParam param) { return result; }
+                  };
+              }
+              public static final XC_MethodReplacement DO_NOTHING = new XC_MethodReplacement() {
+                  protected Object replaceHookedMethod(MethodHookParam param) { return null; }
+              };
           }
           EOF
           cat << 'EOF' > stub/de/robv/android/xposed/XposedHelpers.java
@@ -71,9 +85,15 @@ jobs:
               public static Class<?> findClass(String className, ClassLoader classLoader) { return null; }
               public static XC_MethodHook.Unhook findAndHookMethod(String className, ClassLoader classLoader, String methodName, Object... parameterTypesAndCallback) { return null; }
               public static XC_MethodHook.Unhook findAndHookMethod(Class<?> clazz, String methodName, Object... parameterTypesAndCallback) { return null; }
+              public static XC_MethodHook.Unhook findAndHookConstructor(String className, ClassLoader classLoader, Object... parameterTypesAndCallback) { return null; }
+              public static XC_MethodHook.Unhook findAndHookConstructor(Class<?> clazz, Object... parameterTypesAndCallback) { return null; }
               public static Object getObjectField(Object obj, String fieldName) { return null; }
               public static void setObjectField(Object obj, String fieldName, Object value) {}
+              public static Object getStaticObjectField(Class<?> clazz, String fieldName) { return null; }
+              public static void setStaticObjectField(Class<?> clazz, String fieldName, Object value) {}
               public static Object callMethod(Object obj, String methodName, Object... args) { return null; }
+              public static Object callStaticMethod(Class<?> clazz, String methodName, Object... args) { return null; }
+              public static Object newInstance(Class<?> clazz, Object... args) { return null; }
           }
           EOF
           cat << 'EOF' > stub/de/robv/android/xposed/IXposedHookLoadPackage.java
@@ -81,6 +101,31 @@ jobs:
           import de.robv.android.xposed.callbacks.XC_LoadPackage;
           public interface IXposedHookLoadPackage {
               void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable;
+          }
+          EOF
+          cat << 'EOF' > stub/de/robv/android/xposed/IXposedHookZygoteInit.java
+          package de.robv.android.xposed;
+          public interface IXposedHookZygoteInit {
+              void initZygote(StartupParam startupParam) throws Throwable;
+              public static final class StartupParam {
+                  public String modulePath;
+                  public boolean startsSystemServer;
+              }
+          }
+          EOF
+          cat << 'EOF' > stub/de/robv/android/xposed/XSharedPreferences.java
+          package de.robv.android.xposed;
+          import java.io.File;
+          public class XSharedPreferences {
+              public XSharedPreferences(File prefFile) {}
+              public XSharedPreferences(String packageName) {}
+              public XSharedPreferences(String packageName, String prefFileName) {}
+              public boolean makeWorldReadable() { return false; }
+              public void reload() {}
+              public boolean hasFileChanged() { return false; }
+              public boolean getBoolean(String key, boolean defValue) { return defValue; }
+              public int getInt(String key, int defValue) { return defValue; }
+              public String getString(String key, String defValue) { return defValue; }
           }
           EOF
           cat << 'EOF' > stub/de/robv/android/xposed/callbacks/XC_LoadPackage.java

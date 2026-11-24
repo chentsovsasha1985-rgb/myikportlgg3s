@@ -9,7 +9,17 @@ jobs:
   sign:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout user repo
+        uses: actions/checkout@v4
+      - name: Checkout LineageOS build keys
+        uses: actions/checkout@v4
+        with:
+          repository: LineageOS/android_build
+          ref: cm-13.0
+          path: build_keys
+          sparse-checkout: |
+            target/product/security/platform.x509.pem
+            target/product/security/platform.pk8
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -22,9 +32,7 @@ jobs:
           packages: 'build-tools;30.0.3'
       - name: Sign QuickSetSDK.apk with CM13 platform key
         run: |
-          curl -fSL https://githubusercontent.com -o platform.x509.pem
-          curl -fSL https://githubusercontent.com -o platform.pk8
-          $ANDROID_HOME/build-tools/30.0.3/apksigner sign --v1-signing-enabled true --v2-signing-enabled false --key platform.pk8 --cert platform.x509.pem --out QuickSetSDK_signed.apk QuickSetSDK.apk
+          $ANDROID_HOME/build-tools/30.0.3/apksigner sign --v1-signing-enabled true --v2-signing-enabled false --key build_keys/target/product/security/platform.pk8 --cert build_keys/target/product/security/platform.x509.pem --out QuickSetSDK_signed.apk QuickSetSDK.apk
       - name: Publish Signed QuickSetSDK
         uses: softprops/action-gh-release@v2
         with:

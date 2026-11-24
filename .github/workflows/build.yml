@@ -17,7 +17,7 @@ jobs:
         run: |
           git clone https://github.com
           cd sepolicy-inject
-          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang -static -O2 sepolicy-inject.c -o sepolicy-inject
+          $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang -static -O2 *.c -o sepolicy-inject
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:

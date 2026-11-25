@@ -7,6 +7,7 @@ import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.util.Log;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 
 import at.zweng.xposed.lepro3infrared.quicksetservice.IControl;
@@ -66,7 +67,7 @@ public class InfraredMagic {
                     m.invoke(null);
                 } else if ("setIRRCInfos".equals(name) && params.length == 2) {
                     mSetIrrcInfos = m;
-                    mInfosParamType = params;
+                    mInfosParamType = (Class<?>) Array.get(params, 1);
                 } else if ("setStartIRRCProcess".equals(name)) {
                     mStartIrrcProcess = m;
                 } else if ("setStopIRRCProcess".equals(name)) {
@@ -86,26 +87,27 @@ public class InfraredMagic {
             return;
         }
         try {
-            int len = Math.min(pattern.length, 128);
+            int len = Math.min(Array.getLength(pattern), 128);
             Object dataArg;
             if (mInfosParamType == char[].class) {
-                char[] buf = new char[len + 4];
-                buf = (char) (carrierFrequency & 0xFFFF);
-                buf = (char) ((carrierFrequency >> 16) & 0xFFFF);
-                buf = (char) len;
+                Object buf = Array.newInstance(char.class, len + 4);
+                Array.setChar(buf, 0, (char) (carrierFrequency & 0xFFFF));
+                Array.setChar(buf, 1, (char) ((carrierFrequency >> 16) & 0xFFFF));
+                Array.setChar(buf, 2, (char) len);
                 for (int i = 0; i < len; i++) {
-                    buf[i + 3] = (char) Math.min(65535, pattern[i]);
+                    int val = Array.getInt(pattern, i);
+                    Array.setChar(buf, i + 3, (char) Math.min(65535, val));
                 }
                 dataArg = buf;
             } else {
-                byte[] buf = new byte[len * 2 + 4];
-                buf = (byte) (carrierFrequency & 0xFF);
-                buf = (byte) ((carrierFrequency >> 8) & 0xFF);
-                buf = (byte) (len & 0xFF);
+                Object buf = Array.newInstance(byte.class, len * 2 + 4);
+                Array.setByte(buf, 0, (byte) (carrierFrequency & 0xFF));
+                Array.setByte(buf, 1, (byte) ((carrierFrequency >> 8) & 0xFF));
+                Array.setByte(buf, 2, (byte) (len & 0xFF));
                 for (int i = 0; i < len; i++) {
-                    int val = Math.min(65535, pattern[i]);
-                    buf[4 + i * 2] = (byte) (val & 0xFF);
-                    buf[4 + i * 2 + 1] = (byte) ((val >> 8) & 0xFF);
+                    int val = Math.min(65535, Array.getInt(pattern, i));
+                    Array.setByte(buf, 4 + i * 2, (byte) (val & 0xFF));
+                    Array.setByte(buf, 4 + i * 2 + 1, (byte) ((val >> 8) & 0xFF));
                 }
                 dataArg = buf;
             }

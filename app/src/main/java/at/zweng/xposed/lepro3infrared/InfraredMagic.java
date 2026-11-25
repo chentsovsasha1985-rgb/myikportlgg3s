@@ -42,6 +42,8 @@ public class InfraredMagic {
             return 999;
         }
         try {
+            // Первый пакет пробуждает аудио-модулятор DSP LG, второй излучается в ИК-диод на полную мощность:
+            mControl.transmit(carrierFrequency, pattern);
             mControl.transmit(carrierFrequency, pattern);
             int resultCode = mControl.getLastResultcode();
             if (resultCode != 0) {

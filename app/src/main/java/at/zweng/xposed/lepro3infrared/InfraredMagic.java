@@ -42,9 +42,12 @@ public class InfraredMagic {
             return 999;
         }
         try {
-            // Первый пакет пробуждает аудио-модулятор DSP LG, второй излучается в ИК-диод на полную мощность:
-            mControl.transmit(carrierFrequency, pattern);
-            mControl.transmit(carrierFrequency, pattern);
+            // Дублируем кадр (pattern + pattern), чтобы нативный libqs заполнил REPEAT_DATA (IR R > 0) и включил ИК-диод LG:
+            int[] doubledPattern = new int[pattern.length * 2];
+            System.arraycopy(pattern, 0, doubledPattern, 0, pattern.length);
+            System.arraycopy(pattern, 0, doubledPattern, pattern.length, pattern.length);
+
+            mControl.transmit(carrierFrequency, doubledPattern);
             int resultCode = mControl.getLastResultcode();
             if (resultCode != 0) {
                 Log.w(TAG, "resultCode after calling transmit on QuickSet SDK was != 0. lastResultcode: " + resultCode);

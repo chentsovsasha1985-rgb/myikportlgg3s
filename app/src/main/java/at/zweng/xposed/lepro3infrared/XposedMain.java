@@ -33,6 +33,12 @@ public class XposedMain implements IXposedHookLoadPackage {
             return;
         }
 
+        if ("com.uei.lg.quicksetsdk.lite".equals(lpparam.packageName)) {
+            spoofLgG3Model();
+            log(TAG + ": Spoofed LG-D855 for QuickSetSDK!");
+            return;
+        }
+
         if ("com.tiqiaa.remote".equals(lpparam.packageName)) {
             spoofLgG3Model();
             log(TAG + ": Spoofed LG-D855 for ZazaRemote!");

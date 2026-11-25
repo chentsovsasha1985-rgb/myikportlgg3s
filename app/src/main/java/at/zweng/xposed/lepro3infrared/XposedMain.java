@@ -65,10 +65,11 @@ public class XposedMain implements IXposedHookLoadPackage {
         });
 
         if (Build.VERSION.SDK_INT >= 21) {
-            findAndHookMethod(consumerIrService, "halTransmit", int.class, int[].class, new XC_MethodHook() {
+            Class<?> intArrayClass = Class.forName("[I");
+            findAndHookMethod(consumerIrService, "halTransmit", int.class, intArrayClass, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    int carrierFrequency = (int) Array.get(param.args, 0);
+                    int carrierFrequency = (Integer) Array.get(param.args, 0);
                     int[] pattern = (int[]) Array.get(param.args, 1);
                     int result = mInfraredMagic.transmitIrPattern(carrierFrequency, pattern);
                     Log.v(TAG, "halTransmit was called. return value: " + result);
@@ -80,7 +81,9 @@ public class XposedMain implements IXposedHookLoadPackage {
         findAndHookMethod(consumerIrService, "getCarrierFrequencies", new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                int[] freqs = {30000, 60000};
+                Object freqs = Array.newInstance(int.class, 2);
+                Array.setInt(freqs, 0, 30000);
+                Array.setInt(freqs, 1, 60000);
                 param.setResult(freqs);
             }
         });
@@ -114,13 +117,13 @@ public class XposedMain implements IXposedHookLoadPackage {
         };
 
         try {
-            findAndHookMethod(irrcPlayer, "setIRRCInfos", int.class, char[].class, hook);
+            findAndHookMethod(irrcPlayer, "setIRRCInfos", int.class, Class.forName("[C"), hook);
             log(TAG + ": Hooked IRRCPlayer.setIRRCInfos(int, char[])!");
         } catch (Throwable ignored) {
         }
 
         try {
-            findAndHookMethod(irrcPlayer, "setIRRCInfos", int.class, byte[].class, hook);
+            findAndHookMethod(irrcPlayer, "setIRRCInfos", int.class, Class.forName("[B"), hook);
             log(TAG + ": Hooked IRRCPlayer.setIRRCInfos(int, byte[])!");
         } catch (Throwable ignored) {
         }

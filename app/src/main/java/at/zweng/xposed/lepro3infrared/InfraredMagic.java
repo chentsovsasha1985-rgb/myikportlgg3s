@@ -7,7 +7,10 @@ import android.content.ServiceConnection;
 import android.os.IBinder;
 import android.util.Log;
 
+import java.lang.reflect.Method;
+
 import at.zweng.xposed.lepro3infrared.quicksetservice.IControl;
+import dalvik.system.DexClassLoader;
 
 import static at.zweng.xposed.lepro3infrared.XposedMain.TAG;
 import static de.robv.android.xposed.XposedBridge.log;
@@ -17,6 +20,12 @@ public class InfraredMagic {
     private IControl mControl;
     private Context mContext;
     private boolean mBound = false;
+
+    private boolean mIrrcInited = false;
+    private Method mSetIrrcInfos;
+    private Method mStartIrrcProcess;
+    private Method mStopIrrcProcess;
+    private Class<?> mInfosParamType;
 
     private final ServiceConnection mControlServiceConnection = new ServiceConnection() {
 
@@ -35,6 +44,89 @@ public class InfraredMagic {
         }
     };
 
+    private void ensureNativeIrrc() {
+        if (mIrrcInited || mContext == null) {
+            return;
+        }
+        try {
+            String apkPath = mContext.getPackageManager()
+                    .getApplicationInfo(IControl.QUICKSET_UEI_PACKAGE_NAME, 0).sourceDir;
+            DexClassLoader loader = new DexClassLoader(
+                    apkPath,
+                    mContext.getCodeCacheDir().getAbsolutePath(),
+                    "/system/lib",
+                    ClassLoader.getSystemClassLoader()
+            );
+            Class<?> playerCls = loader.loadClass("com.lge.irrc.IRRCPlayer");
+            for (Method m : playerCls.getDeclaredMethods()) {
+                m.setAccessible(true);
+                String name = m.getName();
+                Class<?>[] params = m.getParameterTypes();
+                if ("nativeInit".equals(name) && params.length == 0) {
+                    m.invoke(null);
+                } else if ("setIRRCInfos".equals(name) && params.length == 2) {
+                    mSetIrrcInfos = m;
+                    mInfosParamType = params[1];
+                } else if ("setStartIRRCProcess".equals(name)) {
+                    mStartIrrcProcess = m;
+                } else if ("setStopIRRCProcess".equals(name)) {
+                    mStopIrrcProcess = m;
+                }
+            }
+            mIrrcInited = true;
+            Log.i(TAG, "Loaded native LG IRRCPlayer successfully! paramType=" + mInfosParamType);
+        } catch (Throwable t) {
+            Log.w(TAG, "Could not load native IRRCPlayer: " + t.getMessage());
+        }
+    }
+
+    private void boostRepeatPulse(int carrierFrequency, int[] pattern) {
+        ensureNativeIrrc();
+        if (mSetIrrcInfos == null || mStartIrrcProcess == null || mStopIrrcProcess == null) {
+            return;
+        }
+        try {
+            int len = Math.min(pattern.length, 128);
+            Object dataArg;
+            if (mInfosParamType == char[].class) {
+                char[] buf = new char[len + 4];
+                buf[0] = (char) (carrierFrequency & 0xFFFF);
+                buf[1] = (char) ((carrierFrequency >> 16) & 0xFFFF);
+                buf[2] = (char) len;
+                for (int i = 0; i < len; i++) {
+                    buf[i + 3] = (char) Math.min(65535, pattern[i]);
+                }
+                dataArg = buf;
+            } else {
+                byte[] buf = new byte[len * 2 + 4];
+                buf[0] = (byte) (carrierFrequency & 0xFF);
+                buf[1] = (byte) ((carrierFrequency >> 8) & 0xFF);
+                buf[2] = (byte) (len & 0xFF);
+                for (int i = 0; i < len; i++) {
+                    int val = Math.min(65535, pattern[i]);
+                    buf[4 + i * 2] = (byte) (val & 0xFF);
+                    buf[4 + i * 2 + 1] = (byte) ((val >> 8) & 0xFF);
+                }
+                dataArg = buf;
+            }
+
+            mSetIrrcInfos.invoke(null, 2, dataArg);
+            if (mStartIrrcProcess.getParameterTypes().length == 1) {
+                mStartIrrcProcess.invoke(null, 0);
+            } else {
+                mStartIrrcProcess.invoke(null);
+            }
+            Thread.sleep(320);
+            if (mStopIrrcProcess.getParameterTypes().length == 1) {
+                mStopIrrcProcess.invoke(null, 0);
+            } else {
+                mStopIrrcProcess.invoke(null);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "boostRepeatPulse error: " + t.getMessage());
+        }
+    }
+
     public int transmitIrPattern(int carrierFrequency, int[] pattern) {
         if (mControl == null || !mBound) {
             Log.w(TAG, "QuickSet Service (for using IR Blaster) seems not to be bound. Trying to bind again and exit.");
@@ -42,13 +134,9 @@ public class InfraredMagic {
             return 999;
         }
         try {
-            // Дублируем кадр (pattern + pattern), чтобы нативный libqs заполнил REPEAT_DATA (IR R > 0) и включил ИК-диод LG:
-            int[] doubledPattern = new int[pattern.length * 2];
-            System.arraycopy(pattern, 0, doubledPattern, 0, pattern.length);
-            System.arraycopy(pattern, 0, doubledPattern, pattern.length, pattern.length);
-
-            mControl.transmit(carrierFrequency, doubledPattern);
+            mControl.transmit(carrierFrequency, pattern);
             int resultCode = mControl.getLastResultcode();
+            boostRepeatPulse(carrierFrequency, pattern);
             if (resultCode != 0) {
                 Log.w(TAG, "resultCode after calling transmit on QuickSet SDK was != 0. lastResultcode: " + resultCode);
             }

@@ -18,6 +18,7 @@ import static de.robv.android.xposed.XposedHelpers.findClass;
 public class XposedMain implements IXposedHookLoadPackage {
 
     public static final String TAG = "LeEco_Infrared_Fix";
+    public static final int[] CONSUMERIR_CARRIER_FREQUENCIES = {30000, 60000};
     private InfraredMagic mInfraredMagic;
     private static Object sLastMakeDataBuffer = null;
 
@@ -81,10 +82,7 @@ public class XposedMain implements IXposedHookLoadPackage {
         findAndHookMethod(consumerIrService, "getCarrierFrequencies", new XC_MethodHook() {
             @Override
             protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                Object freqs = Array.newInstance(int.class, 2);
-                Array.setInt(freqs, 0, 30000);
-                Array.setInt(freqs, 1, 60000);
-                param.setResult(freqs);
+                param.setResult(CONSUMERIR_CARRIER_FREQUENCIES);
             }
         });
 

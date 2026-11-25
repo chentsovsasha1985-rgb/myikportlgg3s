@@ -5,9 +5,12 @@ import android.os.Build;
 import android.util.Log;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Method;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XC_MethodReplacement;
+import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import static de.robv.android.xposed.XposedBridge.log;
@@ -21,13 +24,10 @@ public class XposedMain implements IXposedHookLoadPackage {
     public static final int[] CONSUMERIR_CARRIER_FREQUENCIES = {30000, 60000};
     private InfraredMagic mInfraredMagic;
 
-    private static char[] sLastMakeData = null;
-    private static int sLastMakeLen = 0;
-
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
-        if ("com.uei.lg.quicksetsdk.lite".equals(lpparam.packageName)) {
-            hookQuickSetIrrc(lpparam.classLoader);
+        if ("com.lge.qremote".equals(lpparam.packageName)) {
+            unlockQRemoteCategories(lpparam.classLoader);
             return;
         }
 
@@ -91,31 +91,33 @@ public class XposedMain implements IXposedHookLoadPackage {
         Log.i(TAG, "Hooked ConsumerIrService successfully!");
     }
 
-    private void hookQuickSetIrrc(ClassLoader classLoader) {
-        try {
-            Class<?> irrcPlayer = findClass("com.lge.irrc.IRRCPlayer", classLoader);
-            Class<?> charArrayClass = Class.forName("[C");
+    private void unlockQRemoteCategories(ClassLoader classLoader) {
+        String[] targetClasses = {
+                "com.lge.qremote.settings.utils.QRemoteUtils",
+                "com.lge.qremote.settings.AppState",
+                "com.lge.qremote.settings.SetupServiceManager",
+                "com.lge.qremote.main.AddDeviceActivity"
+        };
 
-            findAndHookMethod(irrcPlayer, "setIRRCInfos", int.class, charArrayClass, int.class, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    int dataType = (Integer) Array.get(param.args, 0);
-                    char[] buf = (char[]) Array.get(param.args, 1);
-                    int len = (Integer) Array.get(param.args, 2);
-
-                    if (dataType == 1 && buf != null && len > 0) {
-                        sLastMakeData = buf.clone();
-                        sLastMakeLen = len;
-                    } else if (dataType == 2 && len == 0 && sLastMakeData != null && sLastMakeLen > 0) {
-                        Array.set(param.args, 1, sLastMakeData.clone());
-                        Array.set(param.args, 2, sLastMakeLen);
-                        Log.i(TAG, "Injected REPEAT_DATA (len=" + sLastMakeLen + ") cleanly!");
+        for (String clsName : targetClasses) {
+            try {
+                Class<?> cls = findClass(clsName, classLoader);
+                for (Method m : cls.getDeclaredMethods()) {
+                    String name = m.getName();
+                    if ("isSWIrRC".equals(name)) {
+                        XposedBridge.hookMethod(m, XC_MethodReplacement.returnConstant(false));
+                    } else if ("isSettopSupported".equals(name)
+                            || "isAirconRemoteOn".equals(name)
+                            || "isAudioRemoteOn".equals(name)
+                            || "isIptvRemoteOn".equals(name)
+                            || "isLearningSupported".equals(name)
+                            || "isHomeControlSupported".equals(name)) {
+                        XposedBridge.hookMethod(m, XC_MethodReplacement.returnConstant(true));
                     }
                 }
-            });
-            log(TAG + ": Hooked IRRCPlayer.setIRRCInfos(int, char[], int) cleanly!");
-        } catch (Throwable t) {
-            Log.e(TAG, "Failed to hook setIRRCInfos: " + t.getMessage());
+            } catch (Throwable ignored) {
+            }
         }
+        log(TAG + ": Unlocked all QRemote categories (Aircon, Set-Top Box, Audio, Learning)!");
     }
 }

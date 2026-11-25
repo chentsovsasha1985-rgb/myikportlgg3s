@@ -1,4 +1,4 @@
-name: Dump strings in h.smali and IRRCPlayer
+name: Dump h.smali tail
 
 on: [push, workflow_dispatch]
 
@@ -9,17 +9,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install apktool
         run: sudo apt-get update -qq && sudo apt-get install -y -qq apktool
-      - name: Read const-strings
+      - name: Read h.smali tail
         run: |
           apktool d -f QuickSetSDK.apk -o qs_smali
           python3 -c '
-          import glob
-          out = []
-          for f in glob.glob("qs_smali/**/*.smali", recursive=True):
-              txt = open(f).read()
-              if "IRRCDataComm" in txt or "IRRCPlayer" in txt:
-                  strs = [l.strip().replace(":", "=") for l in txt.splitlines() if "const-string" in l or "invoke-virtual" in l and ("AudioManager" in l or "getMethod" in l)]
-                  out.append(f.split("/")[-1] + " -> " + " ; ".join(strs[:45]))
-          print("::error::" + " || ".join(out)[:3800])
+          lines = [l.strip().replace(":", "=") for l in open("qs_smali/smali/com/uei/b/h.smali") if l.strip()]
+          print("::error::" + " ; ".join(lines[-45:])[:3800])
           exit(1)
           '

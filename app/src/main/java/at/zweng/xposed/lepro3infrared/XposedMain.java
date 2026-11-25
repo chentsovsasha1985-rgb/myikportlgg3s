@@ -11,6 +11,7 @@ import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedBridge;
+import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import static de.robv.android.xposed.XposedBridge.log;
@@ -27,7 +28,14 @@ public class XposedMain implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
         if ("com.lge.qremote".equals(lpparam.packageName)) {
+            spoofLgG3Model();
             unlockQRemoteCategories(lpparam.classLoader);
+            return;
+        }
+
+        if ("com.tiqiaa.remote".equals(lpparam.packageName)) {
+            spoofLgG3Model();
+            log(TAG + ": Spoofed LG-D855 for ZazaRemote!");
             return;
         }
 
@@ -91,6 +99,15 @@ public class XposedMain implements IXposedHookLoadPackage {
         Log.i(TAG, "Hooked ConsumerIrService successfully!");
     }
 
+    private void spoofLgG3Model() {
+        try {
+            XposedHelpers.setStaticObjectField(Build.class, "MODEL", "LG-D855");
+            XposedHelpers.setStaticObjectField(Build.class, "DEVICE", "g3");
+            XposedHelpers.setStaticObjectField(Build.class, "PRODUCT", "g3_global_com");
+        } catch (Throwable ignored) {
+        }
+    }
+
     private void unlockQRemoteCategories(ClassLoader classLoader) {
         String[] targetClasses = {
                 "com.lge.qremote.settings.utils.QRemoteUtils",
@@ -118,6 +135,6 @@ public class XposedMain implements IXposedHookLoadPackage {
             } catch (Throwable ignored) {
             }
         }
-        log(TAG + ": Unlocked all QRemote categories (Aircon, Set-Top Box, Audio, Learning)!");
+        log(TAG + ": Spoofed LG-D855 & unlocked all QRemote categories!");
     }
 }

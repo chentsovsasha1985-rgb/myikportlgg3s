@@ -5,11 +5,15 @@ import android.os.Build;
 import android.util.Log;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
+import static de.robv.android.xposed.XposedBridge.log;
 import static de.robv.android.xposed.XposedHelpers.findAndHookConstructor;
 import static de.robv.android.xposed.XposedHelpers.findAndHookMethod;
 import static de.robv.android.xposed.XposedHelpers.findClass;
@@ -22,6 +26,11 @@ public class XposedMain implements IXposedHookLoadPackage {
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
+        if ("com.uei.lg.quicksetsdk.lite".equals(lpparam.packageName)) {
+            inspectAndHookIrrc(lpparam.classLoader);
+            return;
+        }
+
         if (!"android".equals(lpparam.packageName)) {
             return;
         }
@@ -80,5 +89,36 @@ public class XposedMain implements IXposedHookLoadPackage {
         });
 
         Log.i(TAG, "Hooked ConsumerIrService successfully!");
+    }
+
+    private void inspectAndHookIrrc(ClassLoader classLoader) {
+        try {
+            Class<?> irrcPlayer = findClass("com.lge.irrc.IRRCPlayer", classLoader);
+            for (Method m : irrcPlayer.getDeclaredMethods()) {
+                Log.i(TAG, "IRRCPlayer method: " + m.getName() + " args=" + Arrays.toString(m.getParameterTypes()));
+                if ("setIRRCInfos".equals(m.getName())) {
+                    XposedBridge.hookMethod(m, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                            StringBuilder sb = new StringBuilder("setIRRCInfos called with args: ");
+                            if (param.args != null) {
+                                int count = Array.getLength(param.args);
+                                for (int i = 0; i < count; i++) {
+                                    Object a = Array.get(param.args, i);
+                                    if (a != null && a.getClass().isArray()) {
+                                        sb.append("arr(len=").append(Array.getLength(a)).append(") ");
+                                    } else {
+                                        sb.append(a).append(" ");
+                                    }
+                                }
+                            }
+                            Log.i(TAG, sb.toString());
+                        }
+                    });
+                }
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "inspectAndHookIrrc error: " + t.getMessage());
+        }
     }
 }

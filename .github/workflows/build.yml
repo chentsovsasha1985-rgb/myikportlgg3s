@@ -1,4 +1,4 @@
-name: Find AudioManager setParameters in QuickSetSDK
+name: Dump com/uei/b/h.smali
 
 on: [push, workflow_dispatch]
 
@@ -9,19 +9,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install apktool
         run: sudo apt-get update -qq && sudo apt-get install -y -qq apktool
-      - name: Find setParameters
+      - name: Read h.smali
         run: |
           apktool d -f QuickSetSDK.apk -o qs_smali
           python3 -c '
-          import glob
-          out = []
-          for f in glob.glob("qs_smali/**/*.smali", recursive=True):
-              txt = open(f).read()
-              if "setParameters" in txt or "IRRCDataComm" in txt:
-                  lines = [l.strip().replace(":", "=") for l in txt.splitlines() if l.strip()]
-                  for i, l in enumerate(lines):
-                      if "setParameters" in l or "IRRCDataComm" in l:
-                          out.append(f.split("/")[-1] + " -> " + " ; ".join(lines[max(0, i-6):min(len(lines), i+12)]))
-          print("::error::" + " || ".join(out)[:3500])
+          lines = [l.strip().replace(":", "=") for l in open("qs_smali/smali/com/uei/b/h.smali") if l.strip()]
+          print("::error::" + " ; ".join(lines)[:3800])
           exit(1)
           '

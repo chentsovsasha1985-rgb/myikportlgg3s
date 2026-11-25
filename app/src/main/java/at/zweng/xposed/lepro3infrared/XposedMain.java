@@ -5,12 +5,9 @@ import android.os.Build;
 import android.util.Log;
 
 import java.lang.reflect.Array;
-import java.lang.reflect.Method;
-import java.util.Arrays;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 import static de.robv.android.xposed.XposedBridge.log;
@@ -24,10 +21,13 @@ public class XposedMain implements IXposedHookLoadPackage {
     public static final int[] CONSUMERIR_CARRIER_FREQUENCIES = {30000, 60000};
     private InfraredMagic mInfraredMagic;
 
+    private static char[] sLastMakeData = null;
+    private static int sLastMakeLen = 0;
+
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
         if ("com.uei.lg.quicksetsdk.lite".equals(lpparam.packageName)) {
-            inspectAndHookIrrc(lpparam.classLoader);
+            hookQuickSetIrrc(lpparam.classLoader);
             return;
         }
 
@@ -91,34 +91,31 @@ public class XposedMain implements IXposedHookLoadPackage {
         Log.i(TAG, "Hooked ConsumerIrService successfully!");
     }
 
-    private void inspectAndHookIrrc(ClassLoader classLoader) {
+    private void hookQuickSetIrrc(ClassLoader classLoader) {
         try {
             Class<?> irrcPlayer = findClass("com.lge.irrc.IRRCPlayer", classLoader);
-            for (Method m : irrcPlayer.getDeclaredMethods()) {
-                Log.i(TAG, "IRRCPlayer method: " + m.getName() + " args=" + Arrays.toString(m.getParameterTypes()));
-                if ("setIRRCInfos".equals(m.getName())) {
-                    XposedBridge.hookMethod(m, new XC_MethodHook() {
-                        @Override
-                        protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                            StringBuilder sb = new StringBuilder("setIRRCInfos called with args: ");
-                            if (param.args != null) {
-                                int count = Array.getLength(param.args);
-                                for (int i = 0; i < count; i++) {
-                                    Object a = Array.get(param.args, i);
-                                    if (a != null && a.getClass().isArray()) {
-                                        sb.append("arr(len=").append(Array.getLength(a)).append(") ");
-                                    } else {
-                                        sb.append(a).append(" ");
-                                    }
-                                }
-                            }
-                            Log.i(TAG, sb.toString());
-                        }
-                    });
+            Class<?> charArrayClass = Class.forName("[C");
+
+            findAndHookMethod(irrcPlayer, "setIRRCInfos", int.class, charArrayClass, int.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    int dataType = (Integer) Array.get(param.args, 0);
+                    char[] buf = (char[]) Array.get(param.args, 1);
+                    int len = (Integer) Array.get(param.args, 2);
+
+                    if (dataType == 1 && buf != null && len > 0) {
+                        sLastMakeData = buf.clone();
+                        sLastMakeLen = len;
+                    } else if (dataType == 2 && len == 0 && sLastMakeData != null && sLastMakeLen > 0) {
+                        Array.set(param.args, 1, sLastMakeData.clone());
+                        Array.set(param.args, 2, sLastMakeLen);
+                        Log.i(TAG, "Injected REPEAT_DATA (len=" + sLastMakeLen + ") cleanly!");
+                    }
                 }
-            }
+            });
+            log(TAG + ": Hooked IRRCPlayer.setIRRCInfos(int, char[], int) cleanly!");
         } catch (Throwable t) {
-            Log.e(TAG, "inspectAndHookIrrc error: " + t.getMessage());
+            Log.e(TAG, "Failed to hook setIRRCInfos: " + t.getMessage());
         }
     }
 }

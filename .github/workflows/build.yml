@@ -14,7 +14,7 @@ jobs:
           apktool d -f QuickSetSDK.apk -o qs_smali
           python3 -c '
           txt = open("qs_smali/smali/com/uei/b/f.smali").read()
-          idx = txt.find("b(I[I)Lcom/uei/quickset/ZipIRWaveForm;")
+          idx = txt.rfind("b(I[I)Lcom/uei/quickset/ZipIRWaveForm;")
           idx = txt.rfind(".method", 0, idx)
           lines = [l.strip().replace(":", "=") for l in txt[idx:idx+4500].splitlines() if l.strip()]
           print("::error::" + " ; ".join(lines[:75])[:3800])

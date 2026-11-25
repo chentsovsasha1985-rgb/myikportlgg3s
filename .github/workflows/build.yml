@@ -1,4 +1,4 @@
-name: Dump ZipIRWaveForm builder in f.smali
+name: Dump ZipIRWaveForm creation in f.smali
 
 on: [push, workflow_dispatch]
 
@@ -9,19 +9,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install apktool
         run: sudo apt-get update -qq && sudo apt-get install -y -qq apktool
-      - name: Read Converting patterns to learned data
+      - name: Read ZipIRWaveForm call
         run: |
           apktool d -f QuickSetSDK.apk -o qs_smali
           python3 -c '
-          import glob
-          out = []
-          for f in glob.glob("qs_smali/**/*.smali", recursive=True):
-              txt = open(f).read()
-              if "Converting patterns to learned data" in txt:
-                  lines = [l.strip().replace(":", "=") for l in txt.splitlines() if l.strip()]
-                  for i, l in enumerate(lines):
-                      if "Converting patterns to learned data" in l:
-                          out.append(f.split("/")[-1] + " -> " + " ; ".join(lines[max(0, i-5):min(len(lines), i+45)]))
-          print("::error::" + " || ".join(out)[:3800])
-          exit(1)
+          lines = [l.strip().replace(":", "=") for l in open("qs_smali/smali/com/uei/b/f.smali") if l.strip()]
+          for i, l in enumerate(lines):
+              if "Converting patterns to learned data" in l:
+                  print("::error::" + " ; ".join(lines[i+40:i+110])[:3800])
+                  exit(1)
           '

@@ -53,7 +53,7 @@ public class InfraredMagic {
                     .getApplicationInfo(IControl.QUICKSET_UEI_PACKAGE_NAME, 0).sourceDir;
             DexClassLoader loader = new DexClassLoader(
                     apkPath,
-                    mContext.getCodeCacheDir().getAbsolutePath(),
+                    "/data/local/tmp",
                     "/system/lib",
                     ClassLoader.getSystemClassLoader()
             );
@@ -66,7 +66,7 @@ public class InfraredMagic {
                     m.invoke(null);
                 } else if ("setIRRCInfos".equals(name) && params.length == 2) {
                     mSetIrrcInfos = m;
-                    mInfosParamType = params[1];
+                    mInfosParamType = params;
                 } else if ("setStartIRRCProcess".equals(name)) {
                     mStartIrrcProcess = m;
                 } else if ("setStopIRRCProcess".equals(name)) {
@@ -90,18 +90,18 @@ public class InfraredMagic {
             Object dataArg;
             if (mInfosParamType == char[].class) {
                 char[] buf = new char[len + 4];
-                buf[0] = (char) (carrierFrequency & 0xFFFF);
-                buf[1] = (char) ((carrierFrequency >> 16) & 0xFFFF);
-                buf[2] = (char) len;
+                buf = (char) (carrierFrequency & 0xFFFF);
+                buf = (char) ((carrierFrequency >> 16) & 0xFFFF);
+                buf = (char) len;
                 for (int i = 0; i < len; i++) {
                     buf[i + 3] = (char) Math.min(65535, pattern[i]);
                 }
                 dataArg = buf;
             } else {
                 byte[] buf = new byte[len * 2 + 4];
-                buf[0] = (byte) (carrierFrequency & 0xFF);
-                buf[1] = (byte) ((carrierFrequency >> 8) & 0xFF);
-                buf[2] = (byte) (len & 0xFF);
+                buf = (byte) (carrierFrequency & 0xFF);
+                buf = (byte) ((carrierFrequency >> 8) & 0xFF);
+                buf = (byte) (len & 0xFF);
                 for (int i = 0; i < len; i++) {
                     int val = Math.min(65535, pattern[i]);
                     buf[4 + i * 2] = (byte) (val & 0xFF);
